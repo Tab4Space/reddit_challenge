@@ -19,9 +19,20 @@ def conv2d_t(inputs, out_shape, f_h, f_w, name, strides=[1, 2, 2, 1]):
         
     return tf.nn.bias_add(tf.nn.conv2d_transpose(inputs, upconv_w, output_shape=out_shape, strides=strides, name=name), upconv_b)
 
+def atrous_conv2d(inputs, out_dim, f_h, f_w, rate, name):
+    with tf.variable_scope(name):
+        atrous_w = tf.get_variable('atrous_weight', dtype=tf.float32, shape=[f_h, f_w, inputs.get_shape()[-1], out_dim], 
+                                initializer=tf.contrib.layers.xavier_initializer_conv2d())
+        atrous_b = tf.get_variable('atrous_bias', dtype=tf.float32, shape=[out_dim], 
+                                initializer=tf.constant_initializer(0.0))
+    return tf.nn.bias_add(tf.nn.atrous_conv2d(inputs, atrous_w, rate=rate, padding='SAME'), atrous_b)
+
 
 def max_pool(inputs, name, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME'):
     return tf.nn.max_pool(inputs, ksize=ksize, strides=strides, padding=padding, name=name)
+
+def avg_pool(inputs, name, ksize, strides, padding='SAME'):
+    return tf.nn.avg_pool(inputs, ksize=ksize, strides=strides, padding=padding)
 
 
 def fully_connect(inputs, out_dim, name):
@@ -43,3 +54,6 @@ def bn(inputs, is_training):
 
 def lrelu(inputs):
     return tf.nn.leaky_relu(inputs)
+
+def relu(inputs):
+    return tf.nn.relu(inputs)

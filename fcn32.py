@@ -94,7 +94,7 @@ class FCN32(object):
 
         self.loss_summary = tf.summary.merge([tf.summary.scalar('loss', self.loss)])
 
-
+        print('aaaa')
     
     def train_model(self):
         data_set_path = load_data_path(self.IMAGE_DATA_DIR, self.ANNOTATION_DATA_DIR, 'training')

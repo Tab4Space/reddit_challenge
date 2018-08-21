@@ -1,6 +1,6 @@
 # reddit_challenge
 
-**<h2>Index**
+**<h2>Index</h2>**
 - Classification Model
     - VGG16(paper, code)
     - ResNet50(paper, code)

@@ -1,12 +1,12 @@
 # reddit_challenge
 
-**Index**
+**<h2>Index**
 - Classification Model
     - VGG16(paper, code)
     - ResNet50(paper, code)
 
 - Semantic Segmentation Model
-    - FCN16(paper, code)
+    - FCN16([paper](https://arxiv.org/abs/1411.4038), code)
     - FCN32(paper, code)
     - UNET(paper, code)
     - PSPNET(paper, code)

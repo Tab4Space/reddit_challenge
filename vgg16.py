@@ -1,26 +1,30 @@
 import tensorflow as tf
 import numpy as np
 import os
+import tensorflow.contrib.slim as slim
 
 from tensorflow.examples.tutorials.mnist import input_data
 from tqdm import tqdm
-from operation import conv2d, max_pool, fully_connect
+from custom_op import conv2d, max_pool, fully_connect
 
 
 class VGG16(object):
-    def __init__(self, **kwargs):
-        self.N_BATCH = kwargs['batch']
-        self.N_EPOCH = kwargs['epoch']
-        self.N_CLASS = kwargs['classes']
-        self.LEARNING_RATE = kwargs['learning_rate']
+    MODEL = 'VGG16'
 
-        self.IMAGE_SHAPE = kwargs['image_shape']
-        self.MODEL_NAME = kwargs['model_name']
-        
+    def __init__(self, epoch, batch, learning_rate, **kwargs):
+        self.N_EPOCH = epoch
+        self.N_BATCH = batch
+        self.LEARNING_RATE = learning_rate
+
+        self.MODEL_NAME = 'VGG16'
+
         self.LOGS_DIR = os.path.join(self.MODEL_NAME+'_result', 'logs')
         self.CKPT_DIR = os.path.join(self.MODEL_NAME+'_result', 'ckpt')
         self.OUTPUT_DIR = os.path.join(self.MODEL_NAME+'_result', 'output')
-
+        
+        self.N_CLASS = 10
+        self.IMAGE_SHAPE = [28, 28, 1]
+        
         self.DATASET_PATH = './DATA/MNIST/'
 
 
@@ -73,6 +77,9 @@ class VGG16(object):
         self.optimizer = tf.train.GradientDescentOptimizer(self.LEARNING_RATE).minimize(self.loss)
 
         self.loss_summary = tf.summary.merge([tf.summary.scalar('loss', self.loss)])
+
+        model_vars = tf.trainable_variables()
+        slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
     
     def train_model(self):

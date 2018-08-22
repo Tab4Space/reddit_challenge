@@ -24,6 +24,7 @@ class VGG16(object):
         
         self.N_CLASS = 10
         self.IMAGE_SHAPE = [28, 28, 1]
+        self.RESIZE = 224
         
         self.DATASET_PATH = './DATA/MNIST/'
 
@@ -50,11 +51,10 @@ class VGG16(object):
         conv5_1 = conv2d(pool4, 512, [3, 3], name='conv5_1')
         conv5_2 = conv2d(conv5_1, 512, [3, 3], name='conv5_2')
         conv5_3 = conv2d(conv5_2, 512, [3, 3], name='conv5_3')
-        pool5 = max_pool(conv5_3, name='pool5')
 
-        _, h, w, d = pool5.get_shape().as_list()
+        _, h, w, d = conv5_3.get_shape().as_list()
 
-        flatten = tf.reshape(pool5, shape=[-1, h*w*d], name='flatten')
+        flatten = tf.reshape(conv5_3, shape=[-1, h*w*d], name='flatten')
         fc1 = fully_connect(flatten, 4096, name='fc1')
         fc1_dropout = tf.nn.dropout(fc1, keep_prob=keep_prob, name='fc1_dropout')
 
@@ -68,10 +68,11 @@ class VGG16(object):
 
     def build_model(self):
         self.input_x = tf.placeholder(dtype=tf.float32, shape=[None]+self.IMAGE_SHAPE)
+        self.resize_x = tf.image.resize_images(self.input_x, size=[self.RESIZE, self.RESIZE])
         self.label_y = tf.placeholder(dtype=tf.float32, shape=[None, self.N_CLASS])
         self.keep_prob = tf.placeholder(dtype=tf.float32)
         
-        self.pred = self.make_model(self.input_x, self.keep_prob)
+        self.pred = self.make_model(self.resize_x, self.keep_prob)
 
         self.loss = tf.reduce_mean(
             tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.pred, labels=self.label_y))

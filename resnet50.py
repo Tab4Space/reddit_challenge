@@ -76,7 +76,8 @@ class ResNet50(object):
 
         self.logits = self.make_model(self.resize_x, self.is_train)
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.label_y)
+        self.loss = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.label_y))
 
         self.optimizer = tf.train.AdamOptimizer(self.LEARNING_RATE).minimize(self.loss)
 

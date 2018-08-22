@@ -1,108 +1,144 @@
 import tensorflow as tf
 import numpy as np
-from custom_op import conv2d, relu, fully_connect, bn, max_pool, avg_pool, fully_connect
+import os
+import tensorflow.contrib.slim as slim
+
+from tqdm import tqdm
+from custom_op import conv2d, relu, fully_connect, bn, max_pool, avg_pool
 from tensorflow.examples.tutorials.mnist import input_data
 
-mnist = input_data.read_data_sets('../MNIST_data/', one_hot=True)
-
-def identity_block(inputs, filters, stage, is_training=True):
-    filter1, filter2, filter3 = filters
-    layer1 = relu(bn(conv2d(inputs, filter1, 1, 1, name=stage+'_a_identity', padding='VALID'), is_training))
-    layer2 = relu(bn(conv2d(layer1, filter2, 3, 3, name=stage+'_b_identity'), is_training))
-    layer3 = bn(conv2d(layer2, filter3, 1, 1, name=stage+'_c_identity', padding='VALID'), is_training)
-    layer4 = relu(tf.add(layer3, inputs))
-
-    return layer4
-
-def conv_block(inputs, filters, stage, s=2, is_training=True):
-    filter1, filter2, filter3 = filters
-    layer1 = relu(bn(conv2d(inputs, filter1, 1, 1, name=stage+'_a_conv', strides=[1, s, s, 1], padding='VALID'), is_training))
-    layer2 = relu(bn(conv2d(layer1, filter2, 3, 3, name=stage+'_b_conv'), is_training))
-    layer3 = bn(conv2d(layer2, filter3, 1, 1, name=stage+'_c_conv', padding='VALID'), is_training)
-    shortcut = bn(conv2d(inputs, filter3, 1, 1, name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
-    layer4 = relu(tf.add(layer3, shortcut))
-    
-    return layer4
-
-
 class ResNet50(object):
-    def __init__(self):
-        self.N_EPOCH = 10
-        self.N_BATCH = 64
-        self.L_RATE = 0.001
+    MODEL = 'ResNet50'
+
+    def __init__(self, epoch, batch, learning_rate):
+        self.N_EPOCH = epoch
+        self.N_BATCH = batch
+        self.LEARNING_RATE = learning_rate
 
         self.MODEL_NAME = 'ResNet50'
+
+        self.LOGS_DIR = os.path.join(self.MODEL_NAME+'_result', 'logs')
+        self.CKPT_DIR = os.path.join(self.MODEL_NAME+'_result', 'ckpt')
+        self.OUTPUT_DIR = os.path.join(self.MODEL_NAME+'_result', 'output')
         
+        self.N_CLASS = 10
+        self.IMAGE_SHAPE = [28, 28, 1]
+        self.RESIZE = 224
+        
+        self.DATASET_PATH = './DATA/MNIST/'
 
-    def model(self, inputs):
-        print('0:', inputs)
-        x = conv2d(inputs, 64, 7, 7, name='conv1', strides=[1, 2, 2, 1])    # size 1/2
-        x = bn(x, is_training=True)
-        x = relu(x)
-        x = max_pool(x, 'pool1', ksize=[1, 3, 3, 1])                        # size 1/4
-        print('1: ', x)
 
-        x = conv_block(x, [64, 64, 256], '2_1', s=1)
-        x = identity_block(x, [64, 64, 256], '2_2')
-        x = identity_block(x, [64, 64, 256], '2_3')
-        print('2: ', x)
+    def make_model(self, inputs, is_training):
 
-        x = conv_block(x, [128, 128, 512], '3_1')
-        x = identity_block(x, [128, 128, 512], '3_2')
-        x = identity_block(x, [128, 128, 512], '3_3')
-        print('3: ', x)
+        with tf.variable_scope('STAGE_1'):
+            layer = relu(bn(conv2d(inputs, 64, [7, 7], strides=[1, 2, 2, 1], name='initial_block'), is_training))
+            layer = max_pool(layer)
 
-        x = conv_block(x, [256, 256, 1024], '4_1')
-        x = identity_block(x, [256, 256, 1024], '4_2')
-        x = identity_block(x, [256, 256, 1024], '4_3')
-        x = identity_block(x, [256, 256, 1024], '4_4')
-        x = identity_block(x, [256, 256, 1024], '4_5')
-        x = identity_block(x, [256, 256, 1024], '4_6')
-        print('4: ', x)
+        with tf.variable_scope('STAGE_2'):
+            layer = self.conv_block(layer, [64, 64, 256], is_training, 'a', s=1)
+            layer = self.identity_block(layer, [64, 64, 256], is_training, 'b')
+            layer = self.identity_block(layer, [64, 64, 256], is_training, 'c')
 
-        x = conv_block(x, [512, 512, 2048], '5_1')
-        x = identity_block(x, [512, 512, 2048], '5_2')
-        x = identity_block(x, [512, 512, 2048], '5_3')
-        print('5: ', x)
+        with tf.variable_scope('STAGE_3'):
+            layer = self.conv_block(layer, [128, 128, 512], is_training, 'a')
+            layer = self.identity_block(layer, [128, 128, 512], is_training, 'b')
+            layer = self.identity_block(layer, [128, 128, 512], is_training, 'c')
 
-        x = avg_pool(x, 'avg_pool', [1, 7, 7, 1], [1, 1, 1, 1], padding='VALID')
-        x = tf.reshape(x, [self.N_BATCH, 2048])
-        x = fully_connect(x, 10, 'fc')
+        with tf.variable_scope('STAGE_4'):
+            layer = self.conv_block(layer, [256, 256, 1024], is_training, 'a')
+            layer = self.identity_block(layer, [256, 256, 1024], is_training, 'b')
+            layer = self.identity_block(layer, [256, 256, 1024], is_training, 'c')
+            layer = self.identity_block(layer, [256, 256, 1024], is_training, 'd')
+            layer = self.identity_block(layer, [256, 256, 1024], is_training, 'e')
+            layer = self.identity_block(layer, [256, 256, 1024], is_training, 'f')
 
-        return x
+        with tf.variable_scope('STAGE_5'):
+            layer = self.conv_block(layer, [512, 512, 2048], is_training, 'a')
+            layer = self.identity_block(layer, [512, 512, 2048], is_training, 'b')
+            layer = self.identity_block(layer, [512, 512, 2048], is_training, 'c')
+
+        with tf.variable_scope('FINAL_STAGE'):
+            layer = avg_pool(layer, [1, 7, 7, 1], [1, 1, 1, 1], padding='VALID')
+
+            _, h, w, d = layer.get_shape().as_list()
+
+            layer = tf.reshape(layer, [-1, h*w*d])
+            layer = fully_connect(layer, self.N_CLASS, 'fc')
+
+            return layer
+
 
     def build_model(self):
-        self.INPUT_X = tf.placeholder(dtype=tf.float32, shape=[None, 28, 28, 1])
-        self.RESIZE_X = tf.image.resize_images(self.INPUT_X, size=[224, 224])
-        self.INPUT_Y = tf.placeholder(dtype=tf.float32, shape=[None, 10])
+        self.input_x = tf.placeholder(dtype=tf.float32, shape=[None]+self.IMAGE_SHAPE)
+        self.resize_x = tf.image.resize_images(self.input_x, size=[self.RESIZE, self.RESIZE])
+        self.label_y = tf.placeholder(dtype=tf.float32, shape=[None, self.N_CLASS])
+        self.is_train = tf.placeholder(dtype=tf.bool)
 
-        self.logits = self.model(self.RESIZE_X)
+        self.logits = self.make_model(self.resize_x, self.is_train)
 
-        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.INPUT_Y)
+        self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.label_y)
 
-        self.optimizer = tf.train.AdamOptimizer(self.L_RATE).minimize(self.loss)
+        self.optimizer = tf.train.AdamOptimizer(self.LEARNING_RATE).minimize(self.loss)
+
+        self.loss_summary = tf.summary.merge([tf.summary.scalar('loss', self.loss)])
+
+        model_vars = tf.trainable_variables()
+        slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
 
     def train_model(self):
+        if not os.path.exists(self.MODEL_NAME+'_result'):   os.mkdir(self.MODEL_NAME+'_result')
+        if not os.path.exists(self.LOGS_DIR):   os.path.exists(self.LOGS_DIR)
+        if not os.path.exists(self.CKPT_DIR):   os.path.exists(self.CKPT_DIR)
+        if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
+
+        mnist = input_data.read_data_sets(self.DATASET_PATH, one_hot=True)
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
-
             total_batch = int(mnist.train.num_examples / self.N_BATCH)
+            counter = 0
 
-            for epoch in range(15):
-                total_cost = 0
+            self.saver = tf.train.Saver()
+            self.writer = tf.summary.FileWriter(self.LOGS_DIR, sess.graph)
 
+            for epoch in tqdm(range(self.N_EPOCH)):
+                total_loss = 0
+            
                 for i in range(total_batch):
                     batch_xs, batch_ys = mnist.train.next_batch(self.N_BATCH)
-                    batch_xs = batch_xs.reshape(self.N_BATCH, 28, 28, 1)
-                    _, cost_val = sess.run([self.optimizer, self.loss], feed_dict={self.INPUT_X:batch_xs, self.INPUT_Y:batch_ys})
-                    total_cost += cost_val
+                    batch_xs = np.reshape(batch_xs, [self.N_BATCH]+self.IMAGE_SHAPE)
 
-                print('Epoch:', '%04d' % (epoch + 1),'Avg. cost =', '{:.3f}'.format(total_cost / total_batch))
+                    feed_dict = {self.input_x: batch_xs, self.label_y: batch_ys, self.is_train: True}
+                    _, summary, loss = sess.run([self.optimizer, self.loss_summary, self.loss], feed_dict=feed_dict)
 
+                    self.writer.add_summary(summary, counter)
+                    counter += 1
+
+                    total_loss += loss
+
+                print('Epoch:', '%03d' % (epoch + 1), 'AVG Loss: ', '{:.6f}'.format(total_loss / total_batch))
+
+                self.saver.save(self.CKPT_DIR, global_step=counter)
+            
+            self.saver.save(self.CKPT_DIR, global_step=counter)
+
+
+    def identity_block(self, inputs, depths, is_training, stage):
+        depth1, depth2, depth3 = depths
+        layer1 = relu(bn(conv2d(inputs, depth1, [1, 1], padding='VALID', name=stage+'_layer1'), is_training))
+        layer2 = relu(bn(conv2d(layer1, depth2, [3, 3], name=stage+'_layer2'), is_training))
+        layer3 = relu(bn(conv2d(layer2, depth3, [1, 1], padding='VALID', name=stage+'_layer3'), is_training))
+        layer4 = relu(tf.add(layer3, inputs, name=stage+'_layer4'))
+        return layer4
         
-        
-model = ResNet50()
-model.build_model()
-model.train_model()
-    
+
+    def conv_block(self, inputs, depths, is_training, stage, s=2):
+        depth1, depth2, depth3 = depths
+        layer1 = relu(bn(conv2d(inputs, depth1, [1, 1], strides=[1, s, s, 1], padding='VALID', name=stage+'_layer1'), is_training))
+        layer2 = relu(bn(conv2d(layer1, depth2, [3, 3], name=stage+'_layer2'), is_training))
+        layer3 = bn(conv2d(layer2, depth3, [1, 1], padding='VALID', name=stage+'_layer3'), is_training)
+        shortcut = bn(conv2d(inputs, depth3, [1, 1], strides=[1, s, s, 1], padding='VALID', name=stage+'_shortcut'), is_training)
+        layer4 = relu(tf.add(layer3, shortcut, name=stage+'_layer4'))
+        return layer4
+

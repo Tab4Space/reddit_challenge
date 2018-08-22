@@ -11,7 +11,7 @@ from custom_op import conv2d, max_pool, fully_connect
 class VGG16(object):
     MODEL = 'VGG16'
 
-    def __init__(self, epoch, batch, learning_rate, **kwargs):
+    def __init__(self, epoch, batch, learning_rate):
         self.N_EPOCH = epoch
         self.N_BATCH = batch
         self.LEARNING_RATE = learning_rate
@@ -52,7 +52,9 @@ class VGG16(object):
         conv5_3 = conv2d(conv5_2, 512, [3, 3], name='conv5_3')
         pool5 = max_pool(conv5_3, name='pool5')
 
-        flatten = tf.reshape(pool5, shape=[self.N_BATCH, -1], name='flatten')
+        _, h, w, d = pool5.get_shape().as_list()
+
+        flatten = tf.reshape(pool5, shape=[-1, h*w*d], name='flatten')
         fc1 = fully_connect(flatten, 4096, name='fc1')
         fc1_dropout = tf.nn.dropout(fc1, keep_prob=keep_prob, name='fc1_dropout')
 
@@ -65,14 +67,14 @@ class VGG16(object):
 
 
     def build_model(self):
-        self.INPUT_X = tf.placeholder(dtype=tf.float32, shape=[self.N_BATCH]+self.IMAGE_SHAPE)
-        self.LABEL_Y = tf.placeholder(dtype=tf.float32, shape=[self.N_BATCH, self.N_CLASS])
-        self.KEEP_PROB = tf.placeholder(dtype=tf.float32)
+        self.input_x = tf.placeholder(dtype=tf.float32, shape=[None]+self.IMAGE_SHAPE)
+        self.label_y = tf.placeholder(dtype=tf.float32, shape=[None, self.N_CLASS])
+        self.keep_prob = tf.placeholder(dtype=tf.float32)
         
-        self.pred = self.make_model(self.INPUT_X, self.KEEP_PROB)
+        self.pred = self.make_model(self.input_x, self.keep_prob)
 
         self.loss = tf.reduce_mean(
-            tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.pred, labels=self.LABEL_Y))
+            tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.pred, labels=self.label_y))
 
         self.optimizer = tf.train.GradientDescentOptimizer(self.LEARNING_RATE).minimize(self.loss)
 
@@ -105,7 +107,7 @@ class VGG16(object):
                     batch_xs, batch_ys = mnist.train.next_batch(self.N_BATCH)
                     batch_xs = np.reshape(batch_xs, [self.N_BATCH]+self.IMAGE_SHAPE)
 
-                    feed_dict = {self.INPUT_X: batch_xs, self.LABEL_Y: batch_ys, self.KEEP_PROB: 0.7}
+                    feed_dict = {self.input_x: batch_xs, self.label_y: batch_ys, self.keep_prob: 0.7}
                     _, summary, loss = sess.run([self.optimizer, self.loss_summary, self.loss], feed_dict=feed_dict)
                     self.writer.add_summary(summary, counter)
                     counter += 1

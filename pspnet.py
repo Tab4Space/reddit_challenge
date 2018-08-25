@@ -1,79 +1,72 @@
 import tensorflow as tf
 import numpy as np
-from custom_op import conv2d, relu, fully_connect, bn, max_pool, avg_pool, fully_connect, conv2d_t
-from utils import next_batch, load_data_path, read_image
-import random
+import os, random
+import tensorflow.contrib.slim as slim
 
-
-def identity_block(inputs, filters, stage, is_training=True):
-    filter1, filter2, filter3 = filters
-    layer1 = relu(bn(conv2d(inputs, filter1, 1, 1, name=stage+'_a_identity', padding='VALID'), is_training))
-    layer2 = relu(bn(conv2d(layer1, filter2, 3, 3, name=stage+'_b_identity'), is_training))
-    layer3 = bn(conv2d(layer2, filter3, 1, 1, name=stage+'_c_identity', padding='VALID'), is_training)
-    layer4 = relu(tf.add(layer3, inputs))
-
-    return layer4
-
-def conv_block(inputs, filters, stage, s=2, is_training=True):
-    filter1, filter2, filter3 = filters
-    layer1 = relu(bn(conv2d(inputs, filter1, 1, 1, name=stage+'_a_conv', strides=[1, s, s, 1], padding='VALID'), is_training))
-    layer2 = relu(bn(conv2d(layer1, filter2, 3, 3, name=stage+'_b_conv'), is_training))
-    layer3 = bn(conv2d(layer2, filter3, 1, 1, name=stage+'_c_conv', padding='VALID'), is_training)
-    shortcut = bn(conv2d(inputs, filter3, 1, 1, name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
-    layer4 = relu(tf.add(layer3, shortcut))
-    
-    return layer4
-
+from tqdm import tqdm
+from custom_op import conv2d, conv2d_t, max_pool, lrelu, bn, relu
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
 
 class PSPNET(object):
-    def __init__(self):
-        self.N_BATCH = 2
-        self.N_EPOCH = 100
-        self.N_CLASS = 151
-        self.L_RATE = 1e-5
+    MODEL = 'PSPNET'
 
-        self.IMAGE_DATA_DIR = '../dataset/images/'
-        self.ANNOTATION_DATA_DIR = '../dataset/annotations/'
-        self.LOG_DIR = './logs/PSPNET/'
+    def __init__(self, epoch, batch, learning_rate):
+        self.N_EPOCH = epoch
+        self.N_BATCH = batch
+        self.LEARNING_RATE = learning_rate
+
         self.MODEL_NAME = 'PSPNET'
 
+        self.LOGS_DIR = os.path.join(self.MODEL_NAME+'_result', 'logs')
+        self.CKPT_DIR = os.path.join(self.MODEL_NAME+'_result', 'ckpt')
+        self.OUTPUT_DIR = os.path.join(self.MODEL_NAME+'_result', 'output')
+        
+        self.N_CLASS = 151
+        self.RESIZE = 192
+        
+        self.TRAIN_IMAGE_PATH = './DATA/ADEChallengeData2016/images/training/'
+        self.TRAIN_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/training/'
 
-    def model(self, inputs):
+        self.VALID_IMAGE_PATH = './DATA/ADEChallengeData2016/images/validation/'
+        self.VALID_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/validation/'
+
+
+    def make_model(self, inputs, is_training):
         with tf.variable_scope('ResNet50'):
-            x = conv2d(inputs, 64, 7, 7, name='conv1', strides=[1, 2, 2, 1])    # size 1/2
-            x = bn(x, is_training=True)
+            x = conv2d(inputs, 64, [7, 7], strides=[1, 2, 2, 1], name='conv1')    # size 1/2
+            x = bn(x, is_training)
             x = relu(x)
-            x = max_pool(x, 'pool1', ksize=[1, 3, 3, 1])                        # size 1/4
+            x = max_pool(x, ksize=[1, 3, 3, 1], name='max_pool1')                        # size 1/4
 
-            x = conv_block(x, [64, 64, 256], '2_1', s=1)
-            x = identity_block(x, [64, 64, 256], '2_2')
-            x = identity_block(x, [64, 64, 256], '2_3')
+            x = self.conv_block(x, [64, 64, 256], is_training, '2_1', s=1)
+            x = self.identity_block(x, [64, 64, 256], is_training, '2_2')
+            x = self.identity_block(x, [64, 64, 256], is_training, '2_3')
 
-            x = conv_block(x, [128, 128, 512], '3_1')
-            x = identity_block(x, [128, 128, 512], '3_2')
-            x = identity_block(x, [128, 128, 512], '3_3')
+            x = self.conv_block(x, [128, 128, 512], is_training, '3_1')
+            x = self.identity_block(x, [128, 128, 512], is_training, '3_2')
+            x = self.identity_block(x, [128, 128, 512], is_training, '3_3')
 
-            x = conv_block(x, [256, 256, 1024], '4_1')
-            x = identity_block(x, [256, 256, 1024], '4_2')
-            x = identity_block(x, [256, 256, 1024], '4_3')
-            x = identity_block(x, [256, 256, 1024], '4_4')
-            x = identity_block(x, [256, 256, 1024], '4_5')
-            x = identity_block(x, [256, 256, 1024], '4_6')
+            x = self.conv_block(x, [256, 256, 1024], is_training, '4_1')
+            x = self.identity_block(x, [256, 256, 1024], is_training, '4_2')
+            x = self.identity_block(x, [256, 256, 1024], is_training, '4_3')
+            x = self.identity_block(x, [256, 256, 1024], is_training, '4_4')
+            x = self.identity_block(x, [256, 256, 1024], is_training, '4_5')
+            x = self.identity_block(x, [256, 256, 1024], is_training, '4_6')
 
-            x = conv_block(x, [512, 512, 2048], '5_1')
-            x = identity_block(x, [512, 512, 2048], '5_2')
-            feature_map = identity_block(x, [512, 512, 2048], '5_3')        # size: (6, 6)
+            x = self.conv_block(x, [512, 512, 2048], is_training, '5_1')
+            x = self.identity_block(x, [512, 512, 2048], is_training, '5_2')
+            feature_map = self.identity_block(x, [512, 512, 2048], is_training, '5_3')        # size: (6, 6)
 
         with tf.variable_scope('Pyramid_Pool'):
-            pool_1x1 = max_pool(feature_map, 'pool_1x1', ksize=[1, 6, 6, 1], strides=[1, 6, 6, 1])
-            pool_2x2 = max_pool(feature_map, 'pool_2x2', ksize=[1, 3, 3, 1], strides=[1, 3, 3, 1])
-            pool_3x3 = max_pool(feature_map, 'pool_3x3', ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1])
-            pool_6x6 = max_pool(feature_map, 'pool_6x6', ksize=[1, 1, 1, 1], strides=[1, 1, 1, 1])
+            pool_1x1 = max_pool(feature_map, ksize=[1, 6, 6, 1], strides=[1, 6, 6, 1], name='pool_1x1')
+            pool_2x2 = max_pool(feature_map, ksize=[1, 3, 3, 1], strides=[1, 3, 3, 1], name='pool_2x2')
+            pool_3x3 = max_pool(feature_map, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], name='pool_3x3')
+            pool_6x6 = max_pool(feature_map, ksize=[1, 1, 1, 1], strides=[1, 1, 1, 1], name='pool_6x6')
 
-            conv_1x1 = relu(bn(conv2d(pool_1x1, 512, 3, 3, 'conv_1x1'), is_training=True))   # reduce dimension
-            conv_2x2 = relu(bn(conv2d(pool_2x2, 512, 3, 3, 'conv_2x2'), is_training=True))   # reduce dimension
-            conv_3x3 = relu(bn(conv2d(pool_3x3, 512, 3, 3, 'conv_3x3'), is_training=True))   # reduce dimension
-            conv_6x6 = relu(bn(conv2d(pool_6x6, 512, 3, 3, 'conv_6x6'), is_training=True))   # reduce dimension
+            conv_1x1 = relu(bn(conv2d(pool_1x1, 512, [3, 3], name='conv_1x1'), is_training))   # reduce dimension
+            conv_2x2 = relu(bn(conv2d(pool_2x2, 512, [3, 3], name='conv_2x2'), is_training))   # reduce dimension
+            conv_3x3 = relu(bn(conv2d(pool_3x3, 512, [3, 3], name='conv_3x3'), is_training))   # reduce dimension
+            conv_6x6 = relu(bn(conv2d(pool_6x6, 512, [3, 3], name='conv_6x6'), is_training))   # reduce dimension
 
             upconv_1x1 = tf.image.resize_bilinear(conv_1x1, [6, 6])
             upconv_2x2 = tf.image.resize_bilinear(conv_2x2, [6, 6])
@@ -82,47 +75,101 @@ class PSPNET(object):
 
             concated = tf.concat([feature_map, upconv_1x1, upconv_2x2, upconv_3x3, upconv_6x6], axis=3)
 
-            out = relu(bn(conv2d(concated, 512, 3, 3, 'out1'), is_training=True))
+            out = relu(bn(conv2d(concated, 512, [3, 3], name='out1'), is_training))
             
-            out = conv2d_t(out, [self.N_BATCH, 12, 12, 256], 3, 3, 'out2')       # (12, 12)
-            out = conv2d_t(out, [self.N_BATCH, 24, 24, 151], 3, 3, 'out3')       # (24, 24)
-            out = conv2d_t(out, [self.N_BATCH, 48, 48, 151], 3, 3, 'out4')       # (24, 24)
-            out = conv2d_t(out, [self.N_BATCH, 192, 192, 151], 3, 3, 'out5', strides=[1, 4, 4, 1])       # (24, 24)
+            out = conv2d_t(out, [None, 12, 12, 256], [3, 3], name='out2')       # (12, 12)
+            out = conv2d_t(out, [None, 24, 24, self.N_CLASS], [3, 3], name='out3')       # (24, 24)
+            out = conv2d_t(out, [None, 48, 48, self.N_CLASS], [3, 3], name='out4')       # (24, 24)
+            out = conv2d_t(out, [None, self.RESIZE, self.RESIZE, self.N_CLASS], [3, 3], name='out5', strides=[1, 4, 4, 1])       # (24, 24)
 
             return out
 
     def build_model(self):
-        self.INPUT_X = tf.placeholder(dtype=tf.float32, shape=[None, 192, 192, 3])
-        self.INPUT_Y = tf.placeholder(dtype=tf.int32, shape=[None, 192, 192, 1])
+        self.input_x = tf.placeholder(dtype=tf.float32, shape=[None, self.RESIZE, self.RESIZE, 3])         # images
+        self.label_y = tf.placeholder(dtype=tf.int32, shape=[None, self.RESIZE, self.RESIZE, 1])         # annotations
+        self.is_train = tf.placeholder(dtype=tf.bool)
 
-        self.logits = self.model(self.INPUT_X)
-
-        self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=tf.squeeze(self.INPUT_Y, [3])))
-        self.optimizer = tf.train.AdamOptimizer(self.L_RATE).minimize(self.loss)
+        self.logits = self.make_model(self.input_x, self.is_train)
+        
+        self.loss = tf.reduce_mean(
+            tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=tf.squeeze(self.label_y, [3])))
+        
+        self.optimizer = tf.train.AdamOptimizer(self.LEARNING_RATE).minimize(self.loss)
 
         self.loss_summary = tf.summary.merge([tf.summary.scalar('loss', self.loss)])
+    
+        model_vars = tf.trainable_variables()
+        slim.model_analyzer.analyze_vars(model_vars, print_info=True)
 
     def train_model(self):
-        data_set_path = load_data_path(self.IMAGE_DATA_DIR, self.ANNOTATION_DATA_DIR, 'training')
-        valid_set_path = load_data_path(self.IMAGE_DATA_DIR, self.ANNOTATION_DATA_DIR, 'validation')
+        if not os.path.exists(self.MODEL_NAME+'_result'):   os.mkdir(self.MODEL_NAME+'_result')
+        if not os.path.exists(self.LOGS_DIR):   os.path.exists(self.LOGS_DIR)
+        if not os.path.exists(self.CKPT_DIR):   os.path.exists(self.CKPT_DIR)
+        if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
         
+        train_set_path = read_data_path(self.TRAIN_IMAGE_PATH, self.TRAIN_LABEL_PATH)
+        valid_set_path = read_data_path(self.VALID_IMAGE_PATH, self.VALID_LABEL_PATH)
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
 
-            for epoch in range(self.N_EPOCH):
-                random.shuffle(data_set_path)           # 매 epoch마다 데이터셋 shuffling
+            total_batch = int(len(train_set_path) / self.N_BATCH)
+            counter = 0
 
-                for i in range(int(len(data_set_path) / 2)):
-                    batch_img_path, batch_ann_path = next_batch(data_set_path, i, self.N_BATCH)
-                    batch_imgs, batch_anns = read_image(batch_img_path, batch_ann_path, self.N_BATCH, 192, 192)
+            self.saver = tf.train.Saver()
+            self.writer = tf.summary.FileWriter(self.LOGS_DIR, sess.graph)
 
-                    _ ,loss_val = sess.run([self.optimizer, self.loss], feed_dict={self.INPUT_X:batch_imgs, self.INPUT_Y:batch_anns})
-                    # self.writer.add_summary(summary_str, counter)
-                    # counter += 1
+            for epoch in tqdm(range(self.N_EPOCH)):
+                total_loss = 0
+                random.shuffle(train_set_path)           # 매 epoch마다 데이터셋 shuffling
+                random.shuffle(valid_set_path)              
 
-                print('EPOCH: {}\t'.format(epoch+1), 'LOSS: {:.8}\t'.format(loss_val))
+                for i in range(int(len(train_set_path) / self.N_BATCH)):
+                    batch_xs_path, batch_ys_path = next_batch(train_set_path, self.N_BATCH, i)
+                    batch_xs = read_image(batch_xs_path, [self.RESIZE, self.RESIZE])
+                    batch_ys = read_annotation(batch_ys_path, [self.RESIZE, self.RESIZE])
+
+                    feed_dict = {self.input_x: batch_xs, self.label_y: batch_ys, self.is_train: True}
+
+                    _, summary_str ,loss = sess.run([self.optimizer, self.loss_summary, self.loss], feed_dict=feed_dict)
+                    self.writer.add_summary(summary_str, counter)
+                    counter += 1
+                    total_loss += loss
+
+                ## validation 과정
+                ## validation 과정에서는 batch를 2로 설정
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
+                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                
+                valid_pred = sess.run(self.logits, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
+                valid_pred = np.squeeze(validation, axis=2)
+                
+                valid_ys = np.squeeze(valid_ys, axis=3)
+
+                ## plotting and save figure
+                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
+                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+
+                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
+                self.saver.save(self.CKPT_DIR, global_step=counter)
+
+            self.saver.save(self.CKPT_DIR, global_step=counter)
 
 
-model = PSPNET()
-model.build_model()
-model.train_model()
+    def identity_block(self, inputs, depths, is_training, stage):
+        depth1, depth2, depth3 = depths
+        layer1 = relu(bn(conv2d(inputs, depth1, [1, 1], padding='VALID', name=stage+'_layer1'), is_training))
+        layer2 = relu(bn(conv2d(layer1, depth2, [3, 3], name=stage+'_layer2'), is_training))
+        layer3 = relu(bn(conv2d(layer2, depth3, [1, 1], padding='VALID', name=stage+'_layer3'), is_training))
+        layer4 = relu(tf.add(layer3, inputs, name=stage+'_layer4'))
+        return layer4
+
+
+    def conv_block(self, inputs, depths, is_training, stage, s=2):
+        depth1, depth2, depth3 = depths
+        layer1 = relu(bn(conv2d(inputs, depth1, [1, 1], strides=[1, s, s, 1], padding='VALID', name=stage+'_layer1'), is_training))
+        layer2 = relu(bn(conv2d(layer1, depth2, [3, 3], name=stage+'_layer2'), is_training))
+        layer3 = bn(conv2d(layer2, depth3, [1, 1], padding='VALID', name=stage+'_layer3'), is_training)
+        shortcut = bn(conv2d(inputs, depth3, [1, 1], strides=[1, s, s, 1], padding='VALID', name=stage+'_shortcut'), is_training)
+        layer4 = relu(tf.add(layer3, shortcut, name=stage+'_layer4'))
+        return layer4

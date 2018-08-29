@@ -24,7 +24,7 @@
     - YOLO V2([paper](https://arxiv.org/abs/1612.08242), [code])
 
 ## Usage ##
-<pre><code>python main.py --model vgg16 --epoch 30 --batch 8 --learning_rate 0.00001</code></pre>
+<pre><code>python main.py --model VGG16 --epoch 30 --batch 8 --learning_rate 0.00001</code></pre>
 
 ## environment ##
 - Windows 10

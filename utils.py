@@ -1,65 +1,129 @@
+import cv2, random, os
 import numpy as np
-import os
-import scipy.misc as misc
 import matplotlib.pyplot as plt
+import scipy.misc as misc
+import xml.etree.ElementTree as ET
 
-def load_data_path(image_dir, annotation_dir, mode):
-    img_path = os.path.join(image_dir, mode)
-    ann_path = os.path.join(annotation_dir, mode)
-
-    images_file_name = [os.path.join(img_path, i) for i in os.listdir(img_path)]
-    annots_file_name = [os.path.join(ann_path, i) for i in os.listdir(ann_path)]
-
-    data_set = []
-
-    for i in range(len(images_file_name)):
-        img_shape = misc.imread(images_file_name[i]).shape
-        ann_shape = misc.imread(annots_file_name[i]).shape
-
-        if len(img_shape) == 3 and len(ann_shape) == 2:
-            data_set.append([images_file_name[i], annots_file_name[i]])
-
-    return data_set
-
-def next_batch(data_set_path, idx, batch_size):
-    batchs = data_set_path[idx*batch_size : idx*batch_size+batch_size]
-    batch_images = []
-    batch_annots = []
-    for i in range(batch_size):
-        batch_images.append(batchs[i][0])
-        batch_annots.append(batchs[i][1])
-
-    return batch_images, batch_annots
-
-def read_image(batch_img_path, batch_ann_path, batch_size, resize_h, resize_w):
-    imgs, anns = [], []
-    for i in range(batch_size):
-        img = misc.imread(batch_img_path[i])
-        ann = misc.imread(batch_ann_path[i])
-
-        img_resize = misc.imresize(img, [resize_h, resize_w], interp='nearest').reshape([1, resize_h, resize_w, 3])
-        ann_resize = misc.imresize(ann, [resize_h, resize_w], interp='nearest').reshape([1, resize_h, resize_w])
-        ann_resize = np.expand_dims(ann_resize, axis=3)
-
-        imgs.append(img_resize)
-        anns.append(ann_resize)
-
-    return np.concatenate(imgs, axis=0), np.concatenate(anns, axis=0)
+from PIL import Image
+# opencv로 이미지를 읽으면 RGB 순서가 아닌 BGR 순서임.
 
 
-def plotting(image, gt, pred, savepath):
-    plt.subplot(3, 1, 1)
-    plt.imshow(image[0])
-    plt.subplot(3, 1, 2)
-    plt.imshow(pred)
-    plt.subplot(3, 1, 3)
-    plt.imshow(gt[0])
+def read_data_path(x, y):
+    inputs_path = [os.path.join(x, file) for file in os.listdir(x)]
+    labels_path = [os.path.join(y, file) for file in os.listdir(y)]
+
+    assert len(inputs_path) == len(labels_path)
+
+    trainSet_path = list()
+
+    for i in range(len(inputs_path)):
+        trainSet_path.append([inputs_path[i], labels_path[i]])
+
+    return trainSet_path
+
+def next_batch(trainSet_path, batch_size, idx):
+    batchs = trainSet_path[idx*batch_size : idx*batch_size+batch_size]
+    batch_xPath, batch_yPath = [], []
     
-    plt.savefig(savepath, bbox_inches='tight')
+    for i in range(batch_size):
+        batch_xPath.append(batchs[i][0])
+        batch_yPath.append(batchs[i][1])
 
-# data_set_path = load_data_path('../dataset/images/', '../dataset/annotations/', 'training')
-# a, b = next_batch(data_set_path, 0, 2)
-# c, d = read_image(a, b, 2)
+    return batch_xPath, batch_yPath
 
-# print(c.shape)
-# print(d.shape)
+def read_image(path, resize):
+    batch_x = np.zeros(shape=[len(path), resize[0], resize[1], 3])
+    
+    for i in range(len(path)):
+        image = misc.imread(path[i])
+        image = misc.imresize(image, resize, interp='nearest')
+        #image = image / 255.0 * 2.0 - 1.0
+        batch_x[i] = image
+
+    return batch_x
+
+## segmentation model 에서 사용할 annotation
+def read_annotation(path, resize):
+    batch_y = np.zeros(shape=[len(path), resize[0], resize[1], 1])
+
+    for i in range(len(path)):
+        # grayscale 로 읽을 때에는 mode='L'
+        label = misc.imread(path[i], mode='L')
+        label = misc.imresize(label, resize, interp='nearest')
+        label = np.expand_dims(label, axis=3)
+        #label = label / 255.0 * 2.0 - 1.0
+        batch_y[i] = label
+    
+    return batch_y
+
+## yolo model 에서 사용할 annotation
+def read_xml(path, n_batch, image_size, grid_size, n_bbox, n_class, class_info):
+    batch_y = np.zeros([n_batch, grid_size, grid_size, n_bbox, 5+n_class])
+
+    for i in range(n_batch):
+        file = path[i]
+        tree = ET.parse(file)
+
+        xml_imageSize = tree.find('size')
+        xml_imageHeight = float(xml_imageSize.find('height').text)
+        xml_imageWidth = float(xml_imageSize.find('width').text)
+
+        h_ratio = float(image_size / xml_imageHeight)
+        w_ratio = float(image_size / xml_imageWidth)
+
+        ## xml 에 object 태그를 모두 찾음
+        objects = tree.findall('object')
+
+        for obj in objects:
+            bbox = obj.find('bndbox')
+
+            ## bbox의 top-left 좌표
+            x1 = max(min((float(bbox.find('xmin').text)) * w_ratio, image_size), 0)
+            y1 = max(min((float(bbox.find('ymin').text)) * h_ratio, image_size), 0)
+            ## bbox의 bottom-right 좌표
+            x2 = max(min((float(bbox.find('xmax').text)) * w_ratio, image_size), 0)
+            y2 = max(min((float(bbox.find('ymax').text)) * h_ratio, image_size), 0)
+
+            ## obejct의 class
+            class_idx = class_info.index(obj.find('name').text.lower().strip())
+
+            ## bbox의 중심점 좌표
+            box_coor = [0.5 * (x1 + x2) / image_size, 0.5 * (y1 + y2) / image_size, \
+                        np.sqrt((x2 - x1) / image_size), np.sqrt((y2 - y1) / image_size)]
+
+            cx = 1.0 * box_coor[0] * grid_size
+            cy = 1.0 * box_coor[1] * grid_size
+
+            cx_idx = int(np.floor(cx))
+            cy_idx = int(np.floor(cy))
+
+            batch_y[i, cy_idx, cx_idx, :, 0] = 1                # confidence
+            batch_y[i, cy_idx, cx_idx, :, 1:5] = box_coor       # coordinate
+            batch_y[i, cy_idx, cx_idx, :, 5+class_idx] = 1      # class info
+
+    return batch_y
+
+
+def draw_plot(image, pred, gt, epoch, batch):
+    image_list = list()
+    fig = plt.figure()
+
+    for i in range(batch):
+        image_list.append(image[0])
+        image_list.append(pred[0])
+        image_list.append(gt[0])
+
+    for i in range(len(image_list)):
+        fig.add_subplot(batch, 3, i+1)
+        plt.imshow(image_list[i])
+
+    return fig
+
+def draw_plot_gan(pred):
+    fig = plt.figure()
+    
+    for i in range(len(pred)):
+        fig.add_subplot(1, len(pred), i+1)
+        plt.imshow(pred[i], cmap='gray')
+
+    return fig

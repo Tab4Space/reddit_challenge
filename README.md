@@ -12,7 +12,7 @@
     - UNET([paper](https://arxiv.org/abs/1505.04597), [code](https://github.com/bhappy10/reddit_challenge/blob/master/unet.py))
     - PSPNET([paper](https://arxiv.org/abs/1612.01105), [code](https://github.com/bhappy10/reddit_challenge/blob/master/pspnet.py))
     - DeepLab V2([paper](https://arxiv.org/abs/1606.00915), [code](https://github.com/bhappy10/reddit_challenge/blob/master/deeplab_v2.py))
-    - DeepLab V3([paper], [code])
+    - DeepLab V3([paper](https://arxiv.org/abs/1706.05587), [code](https://github.com/bhappy10/reddit_challenge/blob/master/deeplab_v3.py))
     - ENET([paper](https://arxiv.org/abs/1606.02147), [code](https://github.com/bhappy10/reddit_challenge/blob/master/enet.py))
 
 - Generative Adversarial Model

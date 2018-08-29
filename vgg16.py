@@ -92,6 +92,7 @@ class VGG16(object):
         if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
 
         mnist = input_data.read_data_sets(self.DATASET_PATH, one_hot=True)
+        ckpt_save_path = os.path.join(self.CKPT_DIR, self.MODEL_NAME+'_'+str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
@@ -115,8 +116,8 @@ class VGG16(object):
 
                     total_loss += loss
 
-                print('Epoch:', '%03d' % (epoch + 1), 'AVG Loss: ', '{:.6f}'.format(total_loss / total_batch))
-
-                self.saver.save(self.CKPT_DIR, global_step=counter)
+                print('Epoch:', '%03d' % (epoch + 1), 'AVG Loss: ', '{:.6f}'.format(total_loss / total_batch))    
+                self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
-            self.saver.save(self.CKPT_DIR, global_step=counter)
+            self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
+            print('Finish save model')

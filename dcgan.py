@@ -90,7 +90,7 @@ class DCGAN(object):
         if not os.path.exists(self.OUTPUT_DIR): os.mkdir(self.OUTPUT_DIR)
 
         mnist = input_data.read_data_sets(self.DATASET_PATH, one_hot=True)
-        ckpt_save_path = os.path.join(self.CKPT_DIR, str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))
+        ckpt_save_path = os.path.join(self.CKPT_DIR, self.MODEL_NAME+'_'+str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))
         
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())

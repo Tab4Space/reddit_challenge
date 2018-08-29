@@ -96,6 +96,8 @@ class FCN8s(object):
         train_set_path = read_data_path(self.TRAIN_IMAGE_PATH, self.TRAIN_LABEL_PATH)
         valid_set_path = read_data_path(self.VALID_IMAGE_PATH, self.VALID_LABEL_PATH)
 
+        ckpt_save_path = os.path.join(self.CKPT_DIR, self.MODEL_NAME+'_'+str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
 
@@ -108,7 +110,7 @@ class FCN8s(object):
             for epoch in tqdm(range(self.N_EPOCH)):
                 total_loss = 0
                 random.shuffle(train_set_path)           # 매 epoch마다 데이터셋 shuffling
-                random.shuffle(valid_set_path)              
+                random.shuffle(valid_set_path)
 
                 for i in range(int(len(train_set_path) / self.N_BATCH)):
                     batch_xs_path, batch_ys_path = next_batch(train_set_path, self.N_BATCH, i)
@@ -127,15 +129,18 @@ class FCN8s(object):
                 valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(validation, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=2)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
+                
+                mIoU = tf.metrics.mean_iou(labels=valid_ys, predictions=valid_pred, num_classes=[self.N_CLASS, self.N_CLASS])
 
                 ## plotting and save figure
                 figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
                 figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
-                self.saver.save(self.CKPT_DIR, global_step=counter)
-
-            self.saver.save(self.CKPT_DIR, global_step=counter)
+                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch), 'mIoU: {}'.format(mIoU))
+                self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
+            
+            self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
+            print('Finish save model')

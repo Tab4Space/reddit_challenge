@@ -1,0 +1,7 @@
+logs/
+model
+ckpt/
+output/
+_pycache_/
+*.pyc
+DATA/

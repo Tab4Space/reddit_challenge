@@ -89,9 +89,9 @@ class ResNet50(object):
 
     def train_model(self):
         if not os.path.exists(self.MODEL_NAME+'_result'):   os.mkdir(self.MODEL_NAME+'_result')
-        if not os.path.exists(self.LOGS_DIR):   os.path.exists(self.LOGS_DIR)
-        if not os.path.exists(self.CKPT_DIR):   os.path.exists(self.CKPT_DIR)
-        if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
+        if not os.path.exists(self.LOGS_DIR):   os.mkdir(self.LOGS_DIR)
+        if not os.path.exists(self.CKPT_DIR):   os.mkdir(self.CKPT_DIR)
+        if not os.path.exists(self.OUTPUT_DIR): os.mkdir(self.OUTPUT_DIR)
 
         mnist = input_data.read_data_sets(self.DATASET_PATH, one_hot=True)
         ckpt_save_path = os.path.join(self.CKPT_DIR, self.MODEL_NAME+'_'+str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))

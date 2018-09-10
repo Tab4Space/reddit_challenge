@@ -111,9 +111,9 @@ class DeepLab_v3(object):
 
     def train_model(self):
         if not os.path.exists(self.MODEL_NAME+'_result'):   os.mkdir(self.MODEL_NAME+'_result')
-        if not os.path.exists(self.LOGS_DIR):   os.path.exists(self.LOGS_DIR)
-        if not os.path.exists(self.CKPT_DIR):   os.path.exists(self.CKPT_DIR)
-        if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
+        if not os.path.exists(self.LOGS_DIR):   os.mkdir(self.LOGS_DIR)
+        if not os.path.exists(self.CKPT_DIR):   os.mkdir(self.CKPT_DIR)
+        if not os.path.exists(self.OUTPUT_DIR): os.mkdir(self.OUTPUT_DIR)
         
         train_set_path = read_data_path(self.TRAIN_IMAGE_PATH, self.TRAIN_LABEL_PATH)
         valid_set_path = read_data_path(self.VALID_IMAGE_PATH, self.VALID_LABEL_PATH)

@@ -3,12 +3,17 @@ import tensorflow as tf
 """
 Convolution layer
 """
-def conv2d(inputs, depth, ksize, strides=[1, 1, 1, 1], padding='SAME', use_bias=True, name='conv2d'):
+def conv2d(inputs, depth, ksize, strides=[1, 1, 1, 1], padding='SAME', use_bias=True, initializer='xavier', name='conv2d'):
+    if initializer == 'xavier':
+        var_init = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
+    elif initializer == 'random':
+        var_init = tf.random_normal_initializer(stddev=0.02)
+    
     with tf.variable_scope(name):
         conv_w = tf.get_variable('conv_weight',
                                 dtype=tf.float32,
                                 shape=ksize+[inputs.get_shape().as_list()[-1], depth],
-                                initializer=tf.contrib.layers.xavier_initializer_conv2d(uniform=False))
+                                initializer=var_init)
                                 
         if use_bias:
             conv_b = tf.get_variable('conv_bias',
@@ -20,14 +25,20 @@ def conv2d(inputs, depth, ksize, strides=[1, 1, 1, 1], padding='SAME', use_bias=
             return tf.nn.conv2d(inputs, conv_w, strides, padding)
 
 
-def conv2d_t(inputs, out_shape, ksize, strides=[1, 2, 2, 1], use_bias=True, name='conv2d_transpose'):
+def conv2d_t(inputs, out_shape, ksize, strides=[1, 2, 2, 1], use_bias=True, initializer='xavier', name='conv2d_transpose'):
     out_shape[0] = tf.shape(inputs)[0]
     ts_out_shape = tf.stack(out_shape)
+
+    if initializer == 'xavier':
+        var_init = tf.contrib.layers.xavier_initializer_conv2d(uniform=False)
+    elif initializer == 'random':
+        var_init = tf.random_normal_initializer(stddev=0.02)
+
     with tf.variable_scope(name):
         convT_w = tf.get_variable('convT_weight',
                                   dtype=tf.float32, 
                                   shape=ksize+[out_shape[-1], inputs.get_shape()[-1]],
-                                  initializer=tf.contrib.layers.xavier_initializer_conv2d(uniform=False))
+                                  initializer=var_init)
         if use_bias:
             convT_b = tf.get_variable('convT_bias', 
                                       dtype=tf.float32,
@@ -84,6 +95,7 @@ def bn(inputs, is_training):
                                         decay=0.9,
                                         updates_collections=None,
                                         epsilon=1e-5,
+                                        scale=True,
                                         is_training=is_training)
 
 
@@ -160,3 +172,30 @@ conv block
 #     shortcut = bn(conv2d(inputs, depth3, [1, 1], name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
 #     layer4 = relu(tf.add(layer3, shortcut))
 #     return layer4
+
+
+def calc_iou(boxes1, boxes2):
+    boxx = tf.square(boxes1[:, :, :, :, 2:4])
+    boxes1_square = boxx[:, :, :, :, 0] * boxx[:, :, :, :, 1]
+    box = tf.stack([boxes1[:, :, :, :, 0] - boxx[:, :, :, :, 0] * 0.5,
+                    boxes1[:, :, :, :, 1] - boxx[:, :, :, :, 1] * 0.5,
+                    boxes1[:, :, :, :, 0] + boxx[:, :, :, :, 0] * 0.5,
+                    boxes1[:, :, :, :, 1] + boxx[:, :, :, :, 1] * 0.5])
+    boxes1 = tf.transpose(box, (1, 2, 3, 4, 0))
+
+    boxx = tf.square(boxes2[:, :, :, :, 2:4])
+    boxes2_square = boxx[:, :, :, :, 0] * boxx[:, :, :, :, 1]
+    box = tf.stack([boxes2[:, :, :, :, 0] - boxx[:, :, :, :, 0] * 0.5,
+                    boxes2[:, :, :, :, 1] - boxx[:, :, :, :, 1] * 0.5,
+                    boxes2[:, :, :, :, 0] + boxx[:, :, :, :, 0] * 0.5,
+                    boxes2[:, :, :, :, 1] + boxx[:, :, :, :, 1] * 0.5])
+    boxes2 = tf.transpose(box, (1, 2, 3, 4, 0))
+
+    left_up = tf.maximum(boxes1[:, :, :, :, :2], boxes2[:, :, :, :, :2])
+    right_down = tf.minimum(boxes1[:, :, :, :, 2:], boxes2[:, :, :, :, 2:])
+
+    intersection = tf.maximum(right_down - left_up, 0.0)
+    inter_square = intersection[:, :, :, :, 0] * intersection[:, :, :, :, 1]
+    union_square = boxes1_square + boxes2_square - inter_square
+
+    return tf.clip_by_value(1.0 * inter_square / union_square, 0.0, 1.0)

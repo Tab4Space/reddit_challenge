@@ -18,18 +18,21 @@
 - Generative Adversarial Model
     - GAN([paper](https://arxiv.org/abs/1406.2661), [code](https://github.com/bhappy10/reddit_challenge/blob/master/gan.py))
     - DCGAN([paper](https://arxiv.org/abs/1511.06434), [code](https://github.com/bhappy10/reddit_challenge/blob/master/dcgan.py))
-    - DiscoGAN([paper](), [code]())
+    - DiscoGAN([paper](https://arxiv.org/abs/1703.05192), [code](https://github.com/bhappy10/reddit_challenge/blob/master/discogan.py))
 
 - Object Detection Model
     - YOLO V2([paper](https://arxiv.org/abs/1612.08242), [code])
 
 ## Usage ##
-<pre><code>python main.py --model VGG16 --epoch 30 --batch 8 --learning_rate 0.00001</code></pre>
+<pre><code>
+# VGG16, ResNet50, FCN8s, FCN16s, FCN32s, UNET, PSPNET, DeepLab_v2, DeepLab_v3, ENET, GAN, DCGAN, DiscoGAN
+python main.py --model VGG16 --epoch 30 --batch 8 --learning_rate 0.00001
+</code></pre>
 
 ## environment ##
 - Windows 10
 - Tensorflow 1.8
-- GTX 1060 3GB
+- GTX 1060 3GB or GTX TITAN Black
 
 ## DataSet ##
 - MNIST

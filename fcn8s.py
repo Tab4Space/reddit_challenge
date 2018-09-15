@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 
 from tqdm import tqdm
 from custom_op import conv2d, conv2d_t, max_pool, lrelu, bn, relu
-from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot_segmentation
 
 
 class FCN8s(object):
@@ -90,8 +90,8 @@ class FCN8s(object):
     def train_model(self):
         if not os.path.exists(self.MODEL_NAME+'_result'):   os.mkdir(self.MODEL_NAME+'_result')
         if not os.path.exists(self.LOGS_DIR):   os.mkdir(self.LOGS_DIR)
-        if not os.path.exists(self.CKPT_DIR):   os.path.exists(self.CKPT_DIR)
-        if not os.path.exists(self.OUTPUT_DIR): os.path.exists(self.OUTPUT_DIR)
+        if not os.path.exists(self.CKPT_DIR):   os.mkdir(self.CKPT_DIR)
+        if not os.path.exists(self.OUTPUT_DIR): os.mkdir(self.OUTPUT_DIR)
         
         train_set_path = read_data_path(self.TRAIN_IMAGE_PATH, self.TRAIN_LABEL_PATH)
         valid_set_path = read_data_path(self.VALID_IMAGE_PATH, self.VALID_LABEL_PATH)
@@ -113,6 +113,7 @@ class FCN8s(object):
                 random.shuffle(valid_set_path)
 
                 for i in range(int(len(train_set_path) / self.N_BATCH)):
+                    # print(i)
                     batch_xs_path, batch_ys_path = next_batch(train_set_path, self.N_BATCH, i)
                     batch_xs = read_image(batch_xs_path, [self.RESIZE, self.RESIZE])
                     batch_ys = read_annotation(batch_ys_path, [self.RESIZE, self.RESIZE])
@@ -125,21 +126,24 @@ class FCN8s(object):
                     total_loss += loss
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
-                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
+                valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(valid_pred, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
                 
-                mIoU = tf.metrics.mean_iou(labels=valid_ys, predictions=valid_pred, num_classes=[self.N_CLASS, self.N_CLASS])
+                iou, conf_mat = tf.metrics.mean_iou(labels=self.label_y, predictions=self.pred, num_classes=self.N_CLASS)
+                sess.run(tf.local_variables_initializer())
+                mIoU = sess.run([iou])
 
                 ## plotting and save figure
-                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
-                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+                img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
+                draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch), 'mIoU: {}'.format(mIoU))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch), 'mIoU: {}'.format(mIoU))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)

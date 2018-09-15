@@ -1,4 +1,6 @@
-import cv2, random, os
+import cv2
+import random
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.misc as misc
@@ -35,7 +37,9 @@ def read_image(path, resize):
     batch_x = np.zeros(shape=[len(path), resize[0], resize[1], 3])
     
     for i in range(len(path)):
-        image = misc.imread(path[i])
+        # image = misc.imread(path[i])
+        image = cv2.imread(path[i], cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = misc.imresize(image, resize, interp='nearest')
         #image = image / 255.0 * 2.0 - 1.0
         batch_x[i] = image
@@ -48,7 +52,7 @@ def read_annotation(path, resize):
 
     for i in range(len(path)):
         # grayscale 로 읽을 때에는 mode='L'
-        label = misc.imread(path[i], mode='L')
+        label = cv2.imread(path[i], cv2.IMREAD_GRAYSCALE)
         label = misc.imresize(label, resize, interp='nearest')
         label = np.expand_dims(label, axis=3)
         #label = label / 255.0 * 2.0 - 1.0
@@ -104,7 +108,8 @@ def read_xml(path, n_batch, image_size, grid_size, n_bbox, n_class, class_info):
     return batch_y
 
 
-def draw_plot(image, pred, gt, epoch, batch):
+def draw_plot_segmentation(path, image, pred, gt):
+    batch = len(image)
     image_list = list()
     fig = plt.figure()
 
@@ -115,15 +120,18 @@ def draw_plot(image, pred, gt, epoch, batch):
 
     for i in range(len(image_list)):
         fig.add_subplot(batch, 3, i+1)
-        plt.imshow(image_list[i])
+        plt.imshow(image_list[i].astype(np.uint8))
 
-    return fig
+    fig.savefig(path, bbox_inches='tight')
+    plt.close()
 
-def draw_plot_gan(pred):
+def draw_plot_gan(pred, save_path):
     fig = plt.figure()
-    
+
     for i in range(len(pred)):
+        plt.axis('off')
         fig.add_subplot(1, len(pred), i+1)
         plt.imshow(pred[i], cmap='gray')
-
-    return fig
+    
+    fig.savefig(save_path, bbox_inches='tight')
+    plt.close(fig)

@@ -134,10 +134,6 @@ class FCN8s(object):
                 valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
-                
-                iou, conf_mat = tf.metrics.mean_iou(labels=self.label_y, predictions=self.pred, num_classes=self.N_CLASS)
-                sess.run(tf.local_variables_initializer())
-                mIoU = sess.run([iou])
 
                 ## plotting and save figure
                 img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'

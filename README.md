@@ -42,6 +42,15 @@ python main.py --model VGG16 --epoch 30 --batch 8 --learning_rate 0.00001
 - PASCAL VOC 2012([Download](https://pjreddie.com/projects/pascal-voc-dataset-mirror/))
 - ADE Challenge 2016([Download](http://sceneparsing.csail.mit.edu/))
 
+## TODO ##
+- YOLO
+- R-CNN 계열
+- CycleGAN
+- MobileNET
+- Inception
+- GoogLeNet
+- Pix2Pix
+- 등등....
 
 ## Reference ##
 - VGG

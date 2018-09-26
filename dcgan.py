@@ -133,3 +133,5 @@ class DCGAN(object):
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             print('Finish save model')
+
+            

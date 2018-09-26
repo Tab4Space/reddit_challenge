@@ -240,4 +240,3 @@ class ENET(object):
                 
                 out = prelu(tf.add(main_branch, sub_branch), name='prelu_add')
                 return out
-

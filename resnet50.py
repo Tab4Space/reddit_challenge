@@ -145,4 +145,3 @@ class ResNet50(object):
         layer4 = relu(tf.add(layer3, shortcut, name=stage+'_layer4'))
         return layer4
 
-

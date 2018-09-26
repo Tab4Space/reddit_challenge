@@ -206,3 +206,5 @@ class DeepLab_v2(object):
         shortcut = bn(conv2d(inputs, depth3, [1, 1], name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
         layer4 = relu(tf.add(layer3, shortcut))
         return layer4
+
+        

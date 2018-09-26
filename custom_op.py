@@ -157,3 +157,5 @@ def calc_iou(boxes1, boxes2):
     union_square = boxes1_square + boxes2_square - inter_square
 
     return tf.clip_by_value(1.0 * inter_square / union_square, 0.0, 1.0)
+
+    

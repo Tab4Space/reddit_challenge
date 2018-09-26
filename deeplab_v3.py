@@ -207,3 +207,4 @@ class DeepLab_v3(object):
         layer4 = relu(tf.add(layer3, shortcut))
         return layer4
         
+

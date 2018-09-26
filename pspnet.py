@@ -180,3 +180,5 @@ class PSPNET(object):
         shortcut = bn(conv2d(inputs, depth3, [1, 1], strides=[1, s, s, 1], padding='VALID', name=stage+'_shortcut'), is_training)
         layer4 = relu(tf.add(layer3, shortcut, name=stage+'_layer4'))
         return layer4
+
+        

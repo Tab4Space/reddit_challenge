@@ -22,7 +22,7 @@ def read_args():
     parser.add_argument('--model', type=str, required=True,
                         choices=['VGG16', 'ResNet50', 'FCN8s', 'FCN16s', 'FCN32s',
                                 'UNET', 'PSPNET', 'DeepLab_v2', 'DeepLab_v3', 'ENET',
-                                'GAN', 'DCGAN', 'DiscoGAN', 'YOLO_V2'])
+                                'GAN', 'DCGAN', 'DiscoGAN', 'YOLO_v2'])
     parser.add_argument('--epoch', type=int, default=30)
     parser.add_argument('--batch', type=int, default=8)
     parser.add_argument('--learning', type=float, default=1e-4)
@@ -51,3 +51,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+    

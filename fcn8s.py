@@ -139,7 +139,7 @@ class FCN8s(object):
                 img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
                 draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch), 'mIoU: {}'.format(mIoU))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)

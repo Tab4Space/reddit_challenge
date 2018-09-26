@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 
 from tqdm import tqdm
 from custom_op import conv2d, conv2d_t, max_pool, lrelu, bn, relu
-from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot_segmentation
 
 class FCN16s(object):
     MODEL = 'FCN16s'
@@ -118,21 +118,23 @@ class FCN16s(object):
                     self.writer.add_summary(summary_str, counter)
                     counter += 1
                     total_loss += loss
+                    print(total_loss)
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
-                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
+                valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(valid_pred, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
 
                 ## plotting and save figure
-                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
-                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+                img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
+                draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)

@@ -27,7 +27,7 @@ def next_batch(trainSet_path, batch_size, idx):
     batchs = trainSet_path[idx*batch_size : idx*batch_size+batch_size]
     batch_xPath, batch_yPath = [], []
     
-    for i in range(batch_size):
+    for i in range(len(batchs)):
         batch_xPath.append(batchs[i][0])
         batch_yPath.append(batchs[i][1])
 

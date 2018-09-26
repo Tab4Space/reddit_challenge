@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 
 from tqdm import tqdm
 from custom_op import conv2d, conv2d_t, atrous_conv2d, relu, bn, max_pool
-from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot_segmentation
 
 
 class DeepLab_v3(object):
@@ -25,11 +25,11 @@ class DeepLab_v3(object):
         self.N_CLASS = 151
         self.RESIZE = 192
         
-        self.TRAIN_IMAGE_PATH = './DATA/ADEChallengeData2016/images/training/'
-        self.TRAIN_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/training/'
+        self.TRAIN_IMAGE_PATH = './DATA/ADEChallengeData2016/images/training2/'
+        self.TRAIN_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/training2/'
 
-        self.VALID_IMAGE_PATH = './DATA/ADEChallengeData2016/images/validation/'
-        self.VALID_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/validation/'
+        self.VALID_IMAGE_PATH = './DATA/ADEChallengeData2016/images/validation2/'
+        self.VALID_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/validation2/'
     
     def make_model(self, inputs, is_training):
         """
@@ -72,7 +72,6 @@ class DeepLab_v3(object):
             # global average pooling
             # feature 맵의 height, width를 평균을 낸다.
             feature_map = tf.reduce_mean(x, [1, 2], keepdims=True)
-            print('GAP: ', feature_map)
 
             feature_map = conv2d(feature_map, 256, [1, 1], name='gap_feature_map')
             feature_map = tf.image.resize_bilinear(feature_map, [feature_map_shape[1], feature_map_shape[2]])
@@ -87,9 +86,12 @@ class DeepLab_v3(object):
             net = conv2d(concated, 256, [1, 1], name='net')
 
             logits = conv2d(net, self.N_CLASS, [1, 1], name='logits')
-            out = tf.image.resize_bilinear(logits, size=[self.RESIZE, self.RESIZE], name='out')
+            logits = tf.image.resize_bilinear(logits, size=[self.RESIZE, self.RESIZE], name='out')
 
-            return logits, out
+            pred = tf.argmax(logits, axis=3)
+            pred = tf.expand_dims(pred, dim=3)
+
+            return logits, pred
 
 
     def build_model(self):
@@ -100,7 +102,7 @@ class DeepLab_v3(object):
         self.logits, self.pred = self.make_model(self.input_x, self.is_train)
 
         self.loss = tf.reduce_mean(
-            tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.pred, labels=tf.squeeze(self.label_y, [3])))
+            tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits, labels=tf.squeeze(self.label_y, [3])))
         self.optimizer = tf.train.AdamOptimizer(self.LEARNING_RATE).minimize(self.loss)
 
         self.loss_summary = tf.summary.merge([tf.summary.scalar('loss', self.loss)])
@@ -148,19 +150,20 @@ class DeepLab_v3(object):
                     total_loss += loss
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
-                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
+                valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(valid_pred, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
 
                 ## plotting and save figure
-                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
-                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+                img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
+                draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)

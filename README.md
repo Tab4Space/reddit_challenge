@@ -91,3 +91,4 @@ python main.py --model VGG16 --epoch 30 --batch 8 --learning_rate 0.00001
 - YOLO
     - [edwith 논문으로 시작하는 딥러닝 - Image Detection 방법론: AttentionNet, SSD, YOLO, YOLOv2](https://www.edwith.org/deeplearningchoi/lecture/15579/)
     - [이진원님 PR-023](https://www.youtube.com/watch?v=6fdclSGgeio&t=260s)
+    - [sogangori님 블로그](https://m.blog.naver.com/PostView.nhn?blogId=sogangori&logNo=221011203855&proxyReferer=https%3A%2F%2Fwww.google.com%2F)

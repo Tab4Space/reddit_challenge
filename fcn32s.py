@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 
 from tqdm import tqdm
 from custom_op import conv2d, conv2d_t, max_pool, lrelu, bn, relu
-from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot_segmentation
 
 class FCN32s(object):
     MODEL = 'FCN32s'
@@ -14,7 +14,7 @@ class FCN32s(object):
         self.N_BATCH = batch
         self.LEARNING_RATE = learning_rate
 
-        self.MODEL_NAME = 'FCN8s'
+        self.MODEL_NAME = 'FCN32s'
 
         self.LOGS_DIR = os.path.join(self.MODEL_NAME+'_result', 'logs')
         self.CKPT_DIR = os.path.join(self.MODEL_NAME+'_result', 'ckpt')
@@ -63,7 +63,6 @@ class FCN32s(object):
 
         annot_pred = tf.argmax(layer7_1, axis=3)
         expand_pred = tf.expand_dims(annot_pred, dim=3)
-        print('expand_pred: ', expand_pred)
 
         return layer7_1, expand_pred
 
@@ -107,9 +106,10 @@ class FCN32s(object):
             for epoch in tqdm(range(self.N_EPOCH)):
                 total_loss = 0
                 random.shuffle(train_set_path)           # 매 epoch마다 데이터셋 shuffling
-                random.shuffle(valid_set_path)              
+                random.shuffle(valid_set_path)
 
                 for i in range(int(len(train_set_path) / self.N_BATCH)):
+                    # print(i)
                     batch_xs_path, batch_ys_path = next_batch(train_set_path, self.N_BATCH, i)
                     batch_xs = read_image(batch_xs_path, [self.RESIZE, self.RESIZE])
                     batch_ys = read_annotation(batch_ys_path, [self.RESIZE, self.RESIZE])
@@ -122,19 +122,20 @@ class FCN32s(object):
                     total_loss += loss
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
-                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
+                valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(valid_pred, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
 
                 ## plotting and save figure
-                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
-                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+                img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
+                draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)

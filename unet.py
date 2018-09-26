@@ -5,7 +5,7 @@ import tensorflow.contrib.slim as slim
 
 from tqdm import tqdm
 from custom_op import conv2d, conv2d_t, max_pool, lrelu, bn, relu
-from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot
+from utils import read_data_path, next_batch, read_image, read_annotation, draw_plot_segmentation
 
 class UNET(object):
     MODEL = 'UNET'
@@ -24,11 +24,11 @@ class UNET(object):
         self.N_CLASS = 151
         self.RESIZE = 224
         
-        self.TRAIN_IMAGE_PATH = './DATA/ADEChallengeData2016/images/training/'
-        self.TRAIN_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/training/'
+        self.TRAIN_IMAGE_PATH = './DATA/ADEChallengeData2016/images/training2/'
+        self.TRAIN_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/training2/'
 
-        self.VALID_IMAGE_PATH = './DATA/ADEChallengeData2016/images/validation/'
-        self.VALID_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/validation/'
+        self.VALID_IMAGE_PATH = './DATA/ADEChallengeData2016/images/validation2/'
+        self.VALID_LABEL_PATH = './DATA/ADEChallengeData2016/annotations/validation2/'
         
 
     def make_model(self, inputs, is_training):
@@ -111,7 +111,7 @@ class UNET(object):
         valid_set_path = read_data_path(self.VALID_IMAGE_PATH, self.VALID_LABEL_PATH)
 
         ckpt_save_path = os.path.join(self.CKPT_DIR, self.MODEL_NAME+'_'+str(self.N_BATCH)+'_'+str(self.LEARNING_RATE))
-        
+
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
 
@@ -124,9 +124,10 @@ class UNET(object):
             for epoch in tqdm(range(self.N_EPOCH)):
                 total_loss = 0
                 random.shuffle(train_set_path)           # 매 epoch마다 데이터셋 shuffling
-                random.shuffle(valid_set_path)              
+                random.shuffle(valid_set_path)
 
                 for i in range(int(len(train_set_path) / self.N_BATCH)):
+                    # print(i)
                     batch_xs_path, batch_ys_path = next_batch(train_set_path, self.N_BATCH, i)
                     batch_xs = read_image(batch_xs_path, [self.RESIZE, self.RESIZE])
                     batch_ys = read_annotation(batch_ys_path, [self.RESIZE, self.RESIZE])
@@ -139,21 +140,22 @@ class UNET(object):
                     total_loss += loss
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, epoch, 2)
-                valid_xs, valid_ys = read_image(valid_xs_path, valid_ys_path, 2)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
+                valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
                 valid_pred = sess.run(self.pred, feed_dict={self.input_x: valid_xs, self.label_y: valid_ys, self.is_train:False})
-                valid_pred = np.squeeze(valid_pred, axis=2)
+                valid_pred = np.squeeze(valid_pred, axis=3)
                 
                 valid_ys = np.squeeze(valid_ys, axis=3)
 
                 ## plotting and save figure
-                figure = draw_plot(valid_xs, valid_pred, valid_ys, self.OUTPUT_DIR, epoch, self.batch)
-                figure.savefig(self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png')
+                img_save_path = self.OUTPUT_DIR + '/' + str(epoch).zfill(3) + '.png'
+                draw_plot_segmentation(img_save_path, valid_xs, valid_pred, valid_ys)
 
-                print('Epoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
+                print('\nEpoch:', '%03d' % (epoch + 1), 'Avg Loss: {:.6}\t'.format(total_loss / total_batch))
                 self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             
             self.saver.save(sess, ckpt_save_path+'_'+str(epoch)+'.model', global_step=counter)
             print('Finish save model')
-
+            

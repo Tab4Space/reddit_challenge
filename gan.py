@@ -163,9 +163,8 @@ class GAN(object):
                     d_total_loss += d_loss
                     g_total_loss += g_loss
 
-                # sample_z = np.random.uniform(-1, 1, size=(self.N_BATCH, self.Z_DIM))
-                sample_z = np.eye(10)
-                # fake_images, _ = self.generator(self.noise_z, is_training=False, reuse=True)
+                sample_z = np.random.uniform(-1, 1, size=(5, self.Z_DIM))
+
                 G_epoch_result = sess.run(self.G_fake_logits, feed_dict={self.noise_z:sample_z, self.is_train:False})
                 G_epoch_result = np.reshape(G_epoch_result, [-1, 28, 28])
                 save_path = os.path.join(self.OUTPUT_DIR, self.MODEL_NAME+'_'+str(epoch+1).zfill(3)+'.png')

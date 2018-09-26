@@ -191,9 +191,7 @@ class DiscoGAN(object):
         domainB = inputs[half:].reshape(-1, 28, 28, 1)
         domainB = scipy.ndimage.interpolation.rotate(domainB, 90, axes=(1, 2))
 
-        sampleABA = domainA[:32]
-
-        # sampleABA = domainA[:10]
+        sampleABA = domainA[:8]
 
         with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
@@ -204,8 +202,6 @@ class DiscoGAN(object):
             self.writer = tf.summary.FileWriter(self.LOGS_DIR, sess.graph)
 
             for epoch in tqdm(range(self.N_EPOCH)):
-                # random.shuffle(domainA)
-                # random.shuffle(domainB)
 
                 d_total_loss, g_total_loss = 0, 0
 
@@ -223,12 +219,6 @@ class DiscoGAN(object):
 
                     d_total_loss += d_loss
                     g_total_loss += g_loss
-
-                # valid_sample = sess.run(self.g_AB, feed_dict={self.input_a:sampleABA, self.is_train:False})
-                # valid_sample = np.reshape(valid_sample, [-1, 28, 28])
-                # figure = draw_plot_gan(valid_sample)
-                # save_path = os.path.join(self.OUTPUT_DIR, self.MODEL_NAME+'_'+str(epoch+1).zfill(3)+'.png')
-                # figure.savefig(save_path, bbox_inches='tight')
 
                 samples = sess.run(self.fakeAB, feed_dict={self.input_a:sampleABA, self.is_train:False})
                 samples = np.reshape(samples, [-1, 28, 28])

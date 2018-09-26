@@ -120,13 +120,12 @@ class DCGAN(object):
                     d_total_loss += d_loss
                     g_total_loss += g_loss
 
-                sample_z = np.random.uniform(-1, 1, size=(self.N_BATCH, self.Z_DIM))
-                # fake_images, _ = self.generator(self.noise_z, is_training=False, reuse=True)
+                sample_z = np.random.uniform(-1, 1, size=(5, self.Z_DIM))
+
                 G_epoch_result = sess.run(self.G_fake_logits, feed_dict={self.noise_z:sample_z, self.is_train:False})
                 G_epoch_result = np.reshape(G_epoch_result, [-1, 28, 28])
-                figure = draw_plot_gan(G_epoch_result)
                 save_path = os.path.join(self.OUTPUT_DIR, self.MODEL_NAME+'_'+str(epoch+1).zfill(3)+'.png')
-                figure.savefig(save_path, bbox_inches='tight')
+                draw_plot_gan(G_epoch_result, save_path)
 
                 print('EPOCH: {}\t'.format(epoch+1), 'D_LOSS: {:.8}\t'.format(d_total_loss / total_batch), 'G_LOSS: {:.8}'.format(g_total_loss / total_batch))
 

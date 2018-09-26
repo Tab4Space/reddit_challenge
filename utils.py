@@ -135,3 +135,5 @@ def draw_plot_gan(pred, save_path):
     
     fig.savefig(save_path, bbox_inches='tight')
     plt.close(fig)
+
+    

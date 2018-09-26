@@ -5,4 +5,3 @@ output/
 _pycache_/
 *.pyc
 DATA/
-.gitignore

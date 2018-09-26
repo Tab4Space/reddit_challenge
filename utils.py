@@ -114,9 +114,9 @@ def draw_plot_segmentation(path, image, pred, gt):
     fig = plt.figure()
 
     for i in range(batch):
-        image_list.append(image[0])
-        image_list.append(pred[0])
-        image_list.append(gt[0])
+        image_list.append(image[i])
+        image_list.append(pred[i])
+        image_list.append(gt[i])
 
     for i in range(len(image_list)):
         fig.add_subplot(batch, 3, i+1)
@@ -129,9 +129,9 @@ def draw_plot_gan(pred, save_path):
     fig = plt.figure()
 
     for i in range(len(pred)):
-        plt.axis('off')
         fig.add_subplot(1, len(pred), i+1)
         plt.imshow(pred[i], cmap='gray')
+        plt.axis('off')
     
     fig.savefig(save_path, bbox_inches='tight')
     plt.close(fig)

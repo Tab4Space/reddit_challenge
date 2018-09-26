@@ -132,48 +132,6 @@ def spatial_dropout(inputs, keep_prob):
     return out
 
 
-"""
-conv block
-"""
-
-# def identity_block(inputs, filters, stage, is_training=True):
-#     filter1, filter2, filter3 = filters
-#     layer1 = relu(bn(conv2d(inputs, filter1, [1, 1], name=stage+'_a_identity', padding='VALID'), is_training))
-#     layer2 = relu(bn(conv2d(layer1, filter2, [3, 3], name=stage+'_b_identity'), is_training))
-#     layer3 = bn(conv2d(layer2, filter3, [1, 1], name=stage+'_c_identity', padding='VALID'), is_training)
-#     layer4 = relu(tf.add(layer3, inputs))
-#     return layer4
-
-
-# def conv_block(inputs, depths, stage, s=2, is_training=True):
-#     depth1, depth2, depth3 = depths
-#     layer1 = relu(bn(conv2d(inputs, depth1, [1, 1], name=stage+'_a_conv', strides=[1, s, s, 1], padding='VALID'), is_training))
-#     layer2 = relu(bn(conv2d(layer1, depth2, [3, 3], name=stage+'_b_conv'), is_training))
-#     layer3 = bn(conv2d(layer2, depth3, [1, 1], name=stage+'_c_conv', padding='VALID'), is_training)
-#     shortcut = bn(conv2d(inputs, depth3, [1, 1], name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
-#     layer4 = relu(tf.add(layer3, shortcut))
-#     return layer4
-
-    
-# def atrous_identity_block(inputs, depths, stage, rate, is_training=True):
-#     depth1, depth2, depth3 = depths
-#     layer1 = relu(bn(atrous_conv2d(inputs, depth1, [1, 1], rate, name=stage+'_a_identity'), is_training))
-#     layer2 = relu(bn(atrous_conv2d(layer1, depth2, [3, 3], rate, name=stage+'_b_identity'), is_training))
-#     layer3 = bn(atrous_conv2d(layer2, depth3, [1, 1], rate, name=stage+'_c_identity'), is_training)
-#     layer4 = relu(tf.add(layer3, inputs))
-#     return layer4
-
-
-# def atrous_conv_block(inputs, depths, stage, rate, s=2, is_training=True):
-#     depth1, depth2, depth3 = depths
-#     layer1 = relu(bn(atrous_conv2d(inputs, depth1, [1, 1], rate, name=stage+'_a_conv'), is_training))
-#     layer2 = relu(bn(atrous_conv2d(layer1, depth2, [3, 3], rate, name=stage+'_b_conv'), is_training))
-#     layer3 = bn(atrous_conv2d(layer2, depth3, [1, 1], rate, name=stage+'_c_conv'), is_training)
-#     shortcut = bn(conv2d(inputs, depth3, [1, 1], name=stage+'_shortcut', strides=[1, s, s, 1], padding='VALID'), is_training)
-#     layer4 = relu(tf.add(layer3, shortcut))
-#     return layer4
-
-
 def calc_iou(boxes1, boxes2):
     boxx = tf.square(boxes1[:, :, :, :, 2:4])
     boxes1_square = boxx[:, :, :, :, 0] * boxx[:, :, :, :, 1]

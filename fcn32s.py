@@ -122,7 +122,7 @@ class FCN32s(object):
                     total_loss += loss
 
                 ## validation 과정
-                valid_xs_path, valid_ys_path = next_batch(valid_set_path, self.N_BATCH, epoch)
+                valid_xs_path, valid_ys_path = next_batch(valid_set_path, 4, 0)
                 valid_xs = read_image(valid_xs_path, [self.RESIZE, self.RESIZE])
                 valid_ys = read_annotation(valid_ys_path, [self.RESIZE, self.RESIZE])
                 
